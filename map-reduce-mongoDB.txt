@@ -1,0 +1,372 @@
+-------------------------------------------------------------------------------------------------------------------------
+1. MAP-REDUCE
+var mapFrance = function() {
+
+  for(var j = 0; j < this.details.length; ++j)
+  {
+
+    var productInfo = {
+                        name: this.details[j].product.name,
+                        quantity: this.details[j].quantity,
+                        totalPaid: this.details[j].quantity*this.details[j].unit_price*(1-this.details[j].discount)
+                      };
+    emit(this.details[j].product.id, productInfo);
+  }
+};
+
+var reduceFrance = function(product, productInfo) {
+    outputs = {
+                quantity: 0,
+                totalPaid: 0,
+                name: null
+               };
+
+    for(var i = 0; i < productInfo.length; ++i)
+    {
+        outputs.quantity += productInfo[i].quantity;
+        outputs.totalPaid += productInfo[i].totalPaid;
+        outputs.name = productInfo[i].name;
+    }
+
+    return outputs;
+};	
+
+
+
+var finalizeFrance = function(product, outputs) {
+    outputs.mr_avg = outputs.totalPaid / outputs.quantity;
+    return outputs;
+};
+
+
+db.orders.mapReduce(
+    mapFrance,
+    reduceFrance,
+    {
+        out: { merge: "france98"},
+        query:
+        {
+            "customer.country": "France",
+            "order_date": { $gte: "1998-01-01" }
+        },
+        finalize: finalizeFrance
+    }
+);
+
+************************************
+rezultat: 
+{
+        "result" : "france98",
+        "timeMillis" : 195,
+        "counts" : {
+                "input" : 23,
+                "emit" : 56,
+                "reduce" : 14,
+                "output" : 39
+        },
+        "ok" : 1
+}
+************************************
+
+
+upit: 
+db.france98.find().pretty().limit(10);
+************************************
+rezultat (shell):
+{
+        "_id" : 6,
+        "value" : {
+                "quantity" : 70,
+                "totalPaid" : 1562.499999125,
+                "name" : "Grandma's Boysenberry Spread",
+                "mr_avg" : 22.32142855892857
+        }
+}
+{
+        "_id" : 7,
+        "value" : {
+                "quantity" : 13,
+                "totalPaid" : 390,
+                "name" : "Uncle Bob's Organic Dried Pears",
+                "mr_avg" : 30
+        }
+}
+{
+        "_id" : 10,
+        "value" : {
+                "name" : "Ikura",
+                "quantity" : 15,
+                "totalPaid" : 465,
+                "mr_avg" : 31
+        }
+}
+{
+        "_id" : 11,
+        "value" : {
+                "name" : "Queso Cabrales",
+                "quantity" : 10,
+                "totalPaid" : 210,
+                "mr_avg" : 21
+        }
+}
+{
+        "_id" : 13,
+        "value" : {
+                "quantity" : 23,
+                "totalPaid" : 134.399999946,
+                "name" : "Konbu",
+                "mr_avg" : 5.843478258521739
+        }
+}
+{
+        "_id" : 14,
+        "value" : {
+                "name" : "Tofu",
+                "quantity" : 20,
+                "totalPaid" : 348.75,
+                "mr_avg" : 17.4375
+        }
+}
+{
+        "_id" : 16,
+        "value" : {
+                "quantity" : 42,
+                "totalPaid" : 670.0800300499201,
+                "name" : "Pavlova",
+                "mr_avg" : 15.954286429760002
+        }
+}
+{
+        "_id" : 17,
+        "value" : {
+                "quantity" : 37,
+                "totalPaid" : 1411.7999995632,
+                "name" : "Alice Mutton",
+                "mr_avg" : 38.15675674495135
+        }
+}
+{
+        "_id" : 18,
+        "value" : {
+                "name" : "Carnarvon Tigers",
+                "quantity" : 6,
+                "totalPaid" : 375,
+                "mr_avg" : 62.5
+        }
+}
+{
+        "_id" : 19,
+        "value" : {
+                "name" : "Teatime Chocolate Biscuits",
+                "quantity" : 10,
+                "totalPaid" : 68.999998575,
+                "mr_avg" : 6.899999857500001
+        }
+}
+
+************************************
+rezultat(DataGrip) (upit isti samo bez pretty()):
+(stupci (redom): id, mr_avg, name, quantity, totalPaid)
+
+
+6	22.32142855892857	Grandma's Boysenberry Spread	70	1562.499999125
+7	30			Uncle Bob's Organic Dried Pears	13	390
+10	31						Ikura	15	465
+11	21					Queso Cabrales	10	210
+13	5.843478258521739				Konbu	23	134.399999946
+14	17.4375						Tofu	20	348.75
+16	15.954286429760002				Pavlova	42	670.0800300499201
+17	38.15675674495135			Alice Mutton	37	1411.7999995632
+18	62.5				Carnarvon Tigers	6	375
+19	6.899999857500001	Teatime Chocolate Biscuits	10	68.999998575
+
+
+
+
+
+************************************
+-------------------------------------------------------------------------------------------------------------------------
+
+2. agg - DataGrip
+db.orders.aggregate([
+    {
+        $match:{
+            $and:
+            [
+                { "customer.country": "France"},
+                { "order_date":  { $gte: "1998-01-01"}}
+            ]}
+    },
+    {
+        $unwind: "$details"
+    },
+    {
+        $set: { discounted: { $subtract: [1, "$details.discount"]}}
+    },
+    {
+        $group:
+        {
+            _id: "$details.product.id",
+
+
+            total: { $sum: { $multiply: ["$discounted","$details.unit_price", "$details.quantity"]} },
+            quantity: { $sum: "$details.quantity" }
+        }
+    },
+    {
+        $project: { value: { agg_avg: { $divide: ["$total", "$quantity"]}}}
+    },
+    {
+        $merge:
+        {
+            into: "france98",
+            on: "_id",
+            whenMatched: [ { $addFields: { "value.agg_avg": "$$new.value.agg_avg"} }]
+
+        }
+    }
+
+]);
+************************************
+Pošto je prethodna linija izvršena u DataGripu automatski sam dobio ispis
+rezultat:
+
+6	22.32142855892857	22.32142855892857	Grandma's Boysenberry Spread	70	1562.499999125
+7	30			30			Uncle Bob's Organic Dried Pears	13	390
+10	31			31						Ikura	15	465
+11	21			21					Queso Cabrales	10	210
+13	5.843478258521739	5.843478258521739				Konbu	23	134.399999946
+14	17.4375				17.4375					Tofu	20	348.75
+16	15.954286429760002	15.954286429760002				Pavlova	42	670.0800300499201
+17	38.15675674495135	38.15675674495135			Alice Mutton	37	1411.7999995632
+18	62.5				62.5			Carnarvon Tigers	6	375
+19	6.899999857499999	6.899999857500001	Teatime Chocolate Biscuits	10	68.999998575
+20	81				81			Sir Rodney's Marmalade	5	405
+24	3.5999999865000007	3.5999999865			Guaraná Fantástica	10	35.999999865
+25	11.666666596666666	11.666666596666667		NuNuCa Nuß-Nougat-Creme	30	349.99999790000004
+26	31.2299995			31.2299995		Gumbär Gummibärchen	5	156.1499975
+27	43.9000015			43.9000015		Schoggi Schokolade	10	439.000015
+29	123.790001			123.790001		Thüringer Rostbratwurst	14	1733.0600140000001
+31	12.5				12.5			Gorgonzola Telino	35	437.5
+33	2.3636363581818185	2.3636363581818185		Geitost			11	25.999999940000002
+34	14				14			Sasquatch Ale		10	140
+38	263.5				263.5				Côte de Blaye	5	1317.5
+39	18				18			Chartreuse verte	21	378
+41	9.64999962			9.64999962	Jack's New England Clam Chowder	40	385.9999848
+42	11.199999958		11.199999958000001	Singaporean Hokkien Fried Mee	10	111.99999958000001
+43	38.33333310333333	38.33333310333333			Ipoh Coffee	30	1149.9999931
+44	15.56000058165		15.56000058165				Gula Malacca	16	248.9600093064
+46	12				12				Spegesild	21	252
+48	10.837499923500001	10.837499923500001			Chocolade	8	86.69999938800001
+51	45.42857142857143	45.42857142857143		Manjimup Dried Apples	7	318
+52	7				7				Filo Mix	5	35
+57	19.5				19.5				Ravioli Angelo	15	292.5
+61	24.224999829		24.224999829				Sirop d'érable	30	726.74999487
+62	44.3699992307		44.3699992307				Tarte au sucre	14	621.1799892298001
+64	33.25				33.25		Wimmers gute Semmelknödel	23	764.75
+67	11.199999958		11.199999958		Laughing Lumberjack Lager	24	268.799998992
+69	36				36			Gudbrandsdalsost	10	360
+70	13.014705802941178	13.014705802941178			Outback Lager	34	442.4999973
+72	34.7999992		34.7999992			Mozzarella di Giovanni	16	556.7999872
+75	7.397727269204546	7.397727269204546		Rhönbräu Klosterbier	44	325.49999984500005
+76	18				18				Lakkalikööri	40	720
+
+
+Nakon:(isto DataGrip pri cemu je agg_avg samo ubacen ispred value.mr_avg [ukupno kao drugi stupac nakon id-a])
+db.france98.find().limit(10);
+
+6	22.32142855892857	22.32142855892857	Grandma's Boysenberry Spread	70	1562.499999125
+7	30			30			Uncle Bob's Organic Dried Pears	13	390
+10	31			31						Ikura	15	465
+11	21			21					Queso Cabrales	10	210
+13	5.843478258521739	5.843478258521739				Konbu	23	134.399999946
+14	17.4375			17.4375						Tofu	20	348.75
+16	15.954286429760002	15.954286429760002				Pavlova	42	670.0800300499201
+17	38.15675674495135	38.15675674495135			Alice Mutton	37	1411.7999995632
+18	62.5			62.5				Carnarvon Tigers	6	375
+19	6.899999857499999	6.899999857500001	Teatime Chocolate Biscuits	10	68.999998575
+
+************************************
+
+Dodatno:
+Usporedba mr_avg i avg_avg: (u shellu)
+
+
+db.france98.find({},{_id: 0, "value.agg_avg": 1, "value.mr_avg": 2 });
+
+rezultat:
+{ "value" : { "mr_avg" : 22.32142855892857, "agg_avg" : 22.32142855892857 } }
+{ "value" : { "mr_avg" : 30, "agg_avg" : 30 } }
+{ "value" : { "mr_avg" : 31, "agg_avg" : 31 } }
+{ "value" : { "mr_avg" : 21, "agg_avg" : 21 } }
+{ "value" : { "mr_avg" : 5.843478258521739, "agg_avg" : 5.843478258521739 } }
+{ "value" : { "mr_avg" : 17.4375, "agg_avg" : 17.4375 } }
+{ "value" : { "mr_avg" : 15.954286429760002, "agg_avg" : 15.954286429760002 } }
+{ "value" : { "mr_avg" : 38.15675674495135, "agg_avg" : 38.15675674495135 } }
+{ "value" : { "mr_avg" : 62.5, "agg_avg" : 62.5 } }
+{ "value" : { "mr_avg" : 6.899999857500001, "agg_avg" : 6.899999857499999 } }
+{ "value" : { "mr_avg" : 81, "agg_avg" : 81 } }
+{ "value" : { "mr_avg" : 3.5999999865, "agg_avg" : 3.5999999865000007 } }
+{ "value" : { "mr_avg" : 11.666666596666667, "agg_avg" : 11.666666596666666 } }
+{ "value" : { "mr_avg" : 31.2299995, "agg_avg" : 31.2299995 } }
+{ "value" : { "mr_avg" : 43.9000015, "agg_avg" : 43.9000015 } }
+{ "value" : { "mr_avg" : 123.790001, "agg_avg" : 123.790001 } }
+{ "value" : { "mr_avg" : 12.5, "agg_avg" : 12.5 } }
+{ "value" : { "mr_avg" : 2.3636363581818185, "agg_avg" : 2.3636363581818185 } }
+{ "value" : { "mr_avg" : 14, "agg_avg" : 14 } }
+{ "value" : { "mr_avg" : 263.5, "agg_avg" : 263.5 } }
+{ "value" : { "mr_avg" : 18, "agg_avg" : 18 } }
+{ "value" : { "mr_avg" : 9.64999962, "agg_avg" : 9.64999962 } }
+{ "value" : { "mr_avg" : 11.199999958000001, "agg_avg" : 11.199999958 } }
+{ "value" : { "mr_avg" : 38.33333310333333, "agg_avg" : 38.33333310333333 } }
+{ "value" : { "mr_avg" : 15.56000058165, "agg_avg" : 15.56000058165 } }
+{ "value" : { "mr_avg" : 12, "agg_avg" : 12 } }
+{ "value" : { "mr_avg" : 10.837499923500001, "agg_avg" : 10.837499923500001 } }
+{ "value" : { "mr_avg" : 45.42857142857143, "agg_avg" : 45.42857142857143 } }
+{ "value" : { "mr_avg" : 7, "agg_avg" : 7 } }
+{ "value" : { "mr_avg" : 19.5, "agg_avg" : 19.5 } }
+{ "value" : { "mr_avg" : 24.224999829, "agg_avg" : 24.224999829 } }
+{ "value" : { "mr_avg" : 44.3699992307, "agg_avg" : 44.3699992307 } }
+{ "value" : { "mr_avg" : 33.25, "agg_avg" : 33.25 } }
+{ "value" : { "mr_avg" : 11.199999958, "agg_avg" : 11.199999958 } }
+{ "value" : { "mr_avg" : 36, "agg_avg" : 36 } }
+{ "value" : { "mr_avg" : 13.014705802941178, "agg_avg" : 13.014705802941178 } }
+{ "value" : { "mr_avg" : 34.7999992, "agg_avg" : 34.7999992 } }
+{ "value" : { "mr_avg" : 7.397727269204546, "agg_avg" : 7.397727269204546 } }
+{ "value" : { "mr_avg" : 18, "agg_avg" : 18 } }
+
+-- postoje minimalne razlike kod zaokruzivanja, nista spec. (preciznije)
+db.france98.aggregate([
+{
+    $project:
+    {
+        _id: 0,
+        "value.agg_avg": 1,
+        "value.mr_avg": 2,
+        AGG_veci: { $cmp: [ "$value.agg_avg", "$value.mr_avg" ] }
+     }
+}
+]);
+
+rezultat (shell):
+{ "value" : { "mr_avg" : 22.32142855892857, "agg_avg" : 22.32142855892857 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 30, "agg_avg" : 30 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 31, "agg_avg" : 31 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 21, "agg_avg" : 21 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 5.843478258521739, "agg_avg" : 5.843478258521739 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 17.4375, "agg_avg" : 17.4375 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 15.954286429760002, "agg_avg" : 15.954286429760002 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 38.15675674495135, "agg_avg" : 38.15675674495135 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 62.5, "agg_avg" : 62.5 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 6.899999857500001, "agg_avg" : 6.899999857499999 }, "AGG_veci" : -1 }
+{ "value" : { "mr_avg" : 81, "agg_avg" : 81 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 3.5999999865, "agg_avg" : 3.5999999865000007 }, "AGG_veci" : 1 }
+{ "value" : { "mr_avg" : 11.666666596666667, "agg_avg" : 11.666666596666666 }, "AGG_veci" : -1 }
+{ "value" : { "mr_avg" : 31.2299995, "agg_avg" : 31.2299995 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 43.9000015, "agg_avg" : 43.9000015 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 123.790001, "agg_avg" : 123.790001 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 12.5, "agg_avg" : 12.5 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 2.3636363581818185, "agg_avg" : 2.3636363581818185 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 14, "agg_avg" : 14 }, "AGG_veci" : 0 }
+{ "value" : { "mr_avg" : 263.5, "agg_avg" : 263.5 }, "AGG_veci" : 0 }
+************************************

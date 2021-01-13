@@ -1,0 +1,135 @@
+
+Napomena: dokument je pisan u notepadu
+---------------------------------------------------------------------------------------------
+1.
+Treba više-manje obrisati strane ključeve u određenim tablicama (mogli bismo i sve NULL vrijednosti, ali to zvuči kao brda posla).
+
+--- match (p:Product) remove p.categoryID, p.supplierID;
+result:(valjda) Set 154 properties, completed after 40 ms. (nisam kopirao no nagađam da za svakog od 77 mičemo 2)
+--- match (o:Order) remove o.customerID, o.employeeID, o.shipVia; 
+result: Set 2490 properties, completed after 152 ms.
+---match (o:Orded)-[od:ORDERS]-(p:Product) remove od.orderID, od.productID;
+result: Set 4310 properties, completed after 104 ms.
+
+---------------------------------------------------------------------------------------------
+
+2. 
+match (o:Order) - [od:ORDERS] -> (p:Product) - [po:PART_OF] -> (c:Category)
+return p.productName as Artikl, c.categoryName as kategorija, 
+sum(od.quantity) as prodano
+order by sum(od.quantity) desc
+limit 20;
+
+result: (kopirano iz Text)
+════════════════════════════════╤════════════════╤═════════╕
+│"Artikl"                         │"kategorija"    │"prodano"│
+╞═════════════════════════════════╪════════════════╪═════════╡
+│"Camembert Pierrot"              │"Dairy Products"│1577     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Raclette Courdavault"           │"Dairy Products"│1496     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Gorgonzola Telino"              │"Dairy Products"│1397     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Gnocchi di nonna Alice"         │"Grains/Cereals"│1263     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Pavlova"                        │"Confections"   │1158     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Rhönbräu Klosterbier"           │"Beverages"     │1155     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Guaraná Fantástica"             │"Beverages"     │1125     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Boston Crab Meat"               │"Seafood"       │1103     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Tarte au sucre"                 │"Confections"   │1083     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Flotemysost"                    │"Dairy Products"│1057     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Chang"                          │"Beverages"     │1057     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Sir Rodney's Scones"            │"Confections"   │1016     │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Lakkalikööri"                   │"Beverages"     │981      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Jack's New England Clam Chowder"│"Seafood"       │981      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Alice Mutton"                   │"Meat/Poultry"  │978      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Pâté chinois"                   │"Meat/Poultry"  │903      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Konbu"                          │"Seafood"       │891      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Manjimup Dried Apples"          │"Produce"       │886      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Steeleye Stout"                 │"Beverages"     │883      │
+├─────────────────────────────────┼────────────────┼─────────┤
+│"Chai"                           │"Beverages"     │828      │
+└─────────────────────────────────┴────────────────┴─────────┘
+
+---------------------------------------------------------------------------------------------
+
+3.
+match (o1:Order) - [od1:ORDERS] -> (p1:Product)
+where p1.productName = "Mozzarella di Giovanni"
+with o1
+match (o2:Order) - [od2:ORDERS] -> (p2:Product)
+where o1.orderID = o2.orderID and p2.productName <> "Mozzarella di Giovanni"
+return p2.productName as Artikl, count(p2.productName) as kupljenoSaMDG
+order by count(p2.productName) desc limit 8;
+
+result:
+╒═════════════════════════════════╤═══════════════╕
+│"Artikl"                         │"kupljenoSaMDG"│
+╞═════════════════════════════════╪═══════════════╡
+│"Gorgonzola Telino"              │6              │
+├─────────────────────────────────┼───────────────┤
+│"Uncle Bob's Organic Dried Pears"│4              │
+├─────────────────────────────────┼───────────────┤
+│"Gumbär Gummibärchen"            │3              │
+├─────────────────────────────────┼───────────────┤
+│"Queso Cabrales"                 │3              │
+├─────────────────────────────────┼───────────────┤
+│"Tarte au sucre"                 │3              │
+├─────────────────────────────────┼───────────────┤
+│"Sir Rodney's Marmalade"         │3              │
+├─────────────────────────────────┼───────────────┤
+│"Camembert Pierrot"              │3              │
+├─────────────────────────────────┼───────────────┤
+│"Geitost"                        │3              │
+└─────────────────────────────────┴───────────────┘
+
+---------------------------------------------------------------------------------------------
+
+4.
+match (c1:Customer) - [k1:PURCHASED] -> (o1:Order) - [od1:ORDERS] -> (p1:Product)
+where  c1.contactName = "Paula Wilson"
+with p1
+match (c2:Customer) - [k2:PURCHASED] -> (o2:Order) - [od2:ORDERS] -> (p2:Product)
+where p1.productID = p2.productID and c2.contactName <> "Paula Wilson"
+return c2.contactName as Kupac, count(p2.productID) as brojPaulinihArtikala
+order by count(p2.productID) desc limit 5;
+
+result:
+╒══════════════════╤══════════════════════╕
+│"Kupac"           │"brojPaulinihArtikala"│
+╞══════════════════╪══════════════════════╡
+│"Jose Pavarotti"  │135                   │
+├──────────────────┼──────────────────────┤
+│"Roland Mendel"   │116                   │
+├──────────────────┼──────────────────────┤
+│"Horst Kloss"     │85                    │
+├──────────────────┼──────────────────────┤
+│"Patricia McKenna"│63                    │
+├──────────────────┼──────────────────────┤
+│"Maria Larsson"   │58                    │
+└──────────────────┴──────────────────────┘
+---------------------------------------------------------------------------------------------
+
+5.
+match (o:Order) - [od:ORDERS] -> (p:Product) 
+with o, sum(toFloat(od.unitPrice)*od.quantity*(1-toFloat(od.discount))) as price
+set o.total = price;
+
+result:
+Set 830 properties, completed after 22 ms.
+
+---------------------------------------------------------------------------------------------

@@ -1,0 +1,380 @@
+
+Legenda:
+( '----' => odjeljuje zadatke)
+( '****' => odjeljuje rezultate od upita unutar zadatka)
+
+Napomena: 
+-rezultati su izvršavani i u DataGripu jer je puno lakše i preglednije zapisivat upite.
+-kod zadatka 7 izvršeni su inverzni upiti
+(tj. prije izvršavanja: "USA" -> "SAD",
+    	      DataGrip: "SAD" -> "USA",
+		 shell: "USA" -> "SAD"
+) da se dobije update u skladu sa zadatkom
+
+
+---------------------------------------------------------------------------------
+1. 
+db.orders.find({ order_id: 11054 });
+
+*********************************************************************************
+rezultat:(DataGrip) ---> razlomljeno pošto je sve kao jedan golem redak tablice
+5e9099d83887a051d658787d	Buenos Aires	Argentina	Cactus Comidas para llevar	
+[{'product': {'id': 33, 'name': 'Geitost', 'category': 'Dairy Products'}, 'unit_price': 2.5, 'quantity': 10, 'discount': 0}, 
+{'product': {'id': 67, 'name': 'Laughing Lumberjack Lager', 'category': 'Beverages'}, 'unit_price': 14, 'quantity': 20, 'discount': 0}]	
+1998-04-28	11054	1998-05-26		1	Speedy Express
+
+
+rezultat:(shell) -----> za naredbu db.orders.find({ order_id: 11054 }).pretty();
+{
+        "_id" : ObjectId("5e9099d83887a051d658787d"),
+        "order_id" : 11054,
+        "order_date" : "1998-04-28",
+        "required_date" : "1998-05-26",
+        "shipped_date" : null,
+        "customer" : {
+                "name" : "Cactus Comidas para llevar",
+                "city" : "Buenos Aires",
+                "country" : "Argentina"
+        },
+        "shipper" : {
+                "id" : 1,
+                "name" : "Speedy Express"
+        },
+        "details" : [
+                {
+                        "product" : {
+                                "id" : 33,
+                                "name" : "Geitost",
+                                "category" : "Dairy Products"
+                        },
+                        "unit_price" : 2.5,
+                        "quantity" : 10,
+                        "discount" : 0
+                },
+                {
+                        "product" : {
+                                "id" : 67,
+                                "name" : "Laughing Lumberjack Lager",
+                                "category" : "Beverages"
+                        },
+                        "unit_price" : 14,
+                        "quantity" : 20,
+                        "discount" : 0
+                }
+        ]
+}
+*********************************************************************************
+---------------------------------------------------------------------------------
+2. 
+
+db.orders.find(
+    {"details.product.category": "Dairy Products"},
+    {"_id": 0, "customer.city": 1, "customer.country": 2, "customer.name": 3 }
+).sort({"customer.country": -1, "customer.city": 1}
+).limit(15);
+
+*********************************************************************************
+rezultat: (DataGrip)
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Barquisimeto	Venezuela	LILA-Supermercado
+Caracas		Venezuela	GROSELLA-Restaurante
+I. de Margarita	Venezuela	LINO-Delicateses
+I. de Margarita	Venezuela	LINO-Delicateses
+San Cristóbal	Venezuela	HILARION-Abastos
+San Cristóbal	Venezuela	HILARION-Abastos
+San Cristóbal	Venezuela	HILARION-Abastos
+San Cristóbal	Venezuela	HILARION-Abastos
+San Cristóbal	Venezuela	HILARION-Abastos
+*********************************************************************************
+
+//provjera:
+//db.orders.find(
+//    {"details.product.category": "Dairy Products"},
+//    {"_id": 0, "customer.city": 1, "customer.country": 2, "customer.name": 3, "details.product.category": 4 }
+//).sort({"customer.country": -1, "customer.city": 1}
+//).limit(15);
+
+*********************************************************************************
+rezultat: (shell) ---> bez .pretty()
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LILA-Supermercado", "city" : "Barquisimeto", "country" : "Venezuela" } }
+{ "customer" : { "name" : "GROSELLA-Restaurante", "city" : "Caracas", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LINO-Delicateses", "city" : "I. de Margarita", "country" : "Venezuela" } }
+{ "customer" : { "name" : "LINO-Delicateses", "city" : "I. de Margarita", "country" : "Venezuela" } }
+{ "customer" : { "name" : "HILARION-Abastos", "city" : "San Cristóbal", "country" : "Venezuela" } }
+{ "customer" : { "name" : "HILARION-Abastos", "city" : "San Cristóbal", "country" : "Venezuela" } }
+{ "customer" : { "name" : "HILARION-Abastos", "city" : "San Cristóbal", "country" : "Venezuela" } }
+{ "customer" : { "name" : "HILARION-Abastos", "city" : "San Cristóbal", "country" : "Venezuela" } }
+{ "customer" : { "name" : "HILARION-Abastos", "city" : "San Cristóbal", "country" : "Venezuela" } }
+*********************************************************************************
+
+
+---------------------------------------------------------------------------------
+3. 
+db.orders.find(
+    { "details.quantity" : { $gt: 120 } },
+    { "_id": 0 ,"order_id": 1, "customer.name": 2 }
+);
+
+*********************************************************************************
+rezultat:(DataGrip)
+Ernst Handel	10764
+Ernst Handel	11072
+*********************************************************************************
+
+// provjera:
+db.orders.find(
+    {"details.quantity" : {$gt: 120}},
+    {"_id": 0 ,"order_id": 1, "customer.name": 2, "details.quantity": 3}
+); 
+//ako treba vise ili jednako 120, zamijeniti $gt sa $gte
+
+*********************************************************************************
+rezultat:(shell)
+{ "order_id" : 10764, "customer" : { "name" : "Ernst Handel" } }
+{ "order_id" : 11072, "customer" : { "name" : "Ernst Handel" } }
+*********************************************************************************
+---------------------------------------------------------------------------------
+4. 
+db.orders.remove({"customer.country": "Sweden"});
+
+*********************************************************************************
+rezultat(shell): WriteResult({ "nRemoved" : 37 })
+*********************************************************************************
+// iz nekog razloga ovo ne radi u DataGripu, ali prolazi u shellu u cmd-promptu	
+
+----------------------------------------------------------------------------------
+5.a) po gradu u drzavi 
+db.orders.aggregate([
+    {
+        $match:{
+            $or:
+            [
+                { "customer.city": "London"},
+                { "customer.country":  "Portugal"}
+            ]}
+
+    },
+    {
+        $group:
+        {
+            _id:
+            {
+                country: "$customer.country",
+                city: "$customer.city"
+
+            },
+            count: { $sum: 1 }
+        }
+    }
+]);
+
+*********************************************************************************
+rezultat: a)
+(DataGrip)
+Lisboa	Portugal	13
+London	UK		46
+
+(shell)
+{ "_id" : { "country" : "UK", "city" : "London" }, "count" : 46 }
+{ "_id" : { "country" : "Portugal", "city" : "Lisboa" }, "count" : 13 }
+*********************************************************************************
+
+
+b) 
+db.orders.count(
+{
+    $or:
+    [
+        { "customer.city": "London"},
+        { "customer.country":  "Portugal"}
+    ]
+}
+);
+
+*********************************************************************************
+rezultat: b)
+(DataGrip) 59
+
+(shell) 59
+*********************************************************************************
+ILI
+
+db.orders.aggregate([
+    {
+        $match:{
+            $or:
+            [
+                { "customer.city": "London" },
+                { "customer.country":  "Portugal" }
+            ]}
+
+    },
+    {
+        $group:
+        {
+            _id: "London + Portugal",
+            count: { $sum: 1 }
+        }
+    },
+
+]);
+
+*********************************************************************************
+rezultat:
+(DataGrip)
+London + Portugal	59
+
+(shell)
+{ "_id" : "London + Portugal", "count" : 59 }
+*********************************************************************************
+---------------------------------------------------------------------------------
+6. 
+db.orders.aggregate([
+{
+    $match: { "customer.country": "USA" }
+},
+{
+    $group:
+    {
+        _id: "$customer.city",
+	//count: { $sum: 1} ----> ako zelimo dodat broj narudzbi gradu
+    }
+}
+]);
+
+*********************************************************************************
+rezultat:
+(DataGrip)
+Anchorage
+Albuquerque
+Seattle
+Elgin
+Eugene
+Butte
+Kirkland
+Walla Walla
+Boise
+San Francisco
+Lander
+Portland
+
+(shell)
+{ "_id" : "Kirkland" }
+{ "_id" : "Boise" }
+{ "_id" : "Portland" }
+{ "_id" : "Anchorage" }
+{ "_id" : "San Francisco" }
+{ "_id" : "Lander" }
+{ "_id" : "Seattle" }
+{ "_id" : "Butte" }
+{ "_id" : "Albuquerque" }
+{ "_id" : "Elgin" }
+{ "_id" : "Walla Walla" }
+{ "_id" : "Eugene" }
+
+
+*********************************************************************************
+
+ILI
+
+db.orders.distinct( "customer.city", { "customer.country": "SAD" } );
+
+*********************************************************************************
+rezultat:(samo shell, ne radi za DataGrip)
+[
+        "Albuquerque",
+        "Anchorage",
+        "Boise",
+        "Butte",
+        "Elgin",
+        "Eugene",
+        "Kirkland",
+        "Lander",
+        "Portland",
+        "San Francisco",
+        "Seattle",
+        "Walla Walla"
+]
+*********************************************************************************
+
+---------------------------------------------------------------------------------
+7. 
+db.orders.updateMany(
+   { "customer.country": "USA"},
+   { $set: { "customer.country": "SAD" }}
+);
+
+*********************************************************************************
+rezultat:
+(DataGrip)
+true	122	122
+
+(shell)
+{ "acknowledged" : true, "matchedCount" : 122, "modifiedCount" : 122 }
+*********************************************************************************
+---------------------------------------------------------------------------------
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+postgres
+--prvo kopiramo upit u csv datoteku
+
+\copy (
+select json_build_object(
+    'order_id', o.order_id,
+    'order_date', o.order_date,
+    'required_date', o.required_date,
+    'shipped_date', o.shipped_date,
+    'customer', json_build_object(
+        'city', c.city,
+        'country', c.country,
+        'name', c.company_name),
+    'shipper', json_build_object(
+        'id', s.shipper_id,
+        'name', s.company_name
+        ),
+    'details', json_agg(json_build_object(
+        'product', json_build_object(
+            'id', p.product_id,
+            'name', p.product_name,
+            'category', c2.category_name
+                    ),
+        'unit_price', od.unit_price,
+        'quantity', od.quantity,
+        'discount', od.discount
+            ))
+           )
+from orders o
+join customers c on o.customer_id = c.customer_id
+join shippers s on o.ship_via = s.shipper_id
+join order_details od on o.order_id = od.order_id
+join products p on od.product_id = p.product_id
+join categories c2 on p.category_id = c2.category_id
+group by o.order_id,
+         c.city, c.country, c.company_name,
+         s.shipper_id, s.company_name
+) to 'my_orders.csv' with csv;
+
+rezultat:(nakon \c northwind)
+COPY 830
+
+
+--onda još moramo prebaciti dokument na host
+
+docker cp nbp-postgres:/my_orders.csv C:/Users/stvar/tmp
+
+rezultat: pojavljuje se dokument my_orders.csv u C:/Users/stvar/tmp
+
+
+
